@@ -14,6 +14,7 @@ func resourceHarborProject() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceHarborProjectCreate,
 		Read:   resourceHarborProjectRead,
+		Update: resourceHarborProjectUpdate,
 		Delete: resourceHarborProjectDelete,
 
 		Schema: map[string]*schema.Schema{
@@ -21,6 +22,31 @@ func resourceHarborProject() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
+			},
+			"public": &schema.Schema{
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
+			},
+			"auto_scan": &schema.Schema{
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
+			},
+			"content_trust": &schema.Schema{
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
+			},
+			"prevent_vulnerability": &schema.Schema{
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
+			},
+			"severity": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "low",
 			},
 		},
 	}
@@ -32,6 +58,13 @@ func resourceHarborProjectCreate(d *schema.ResourceData, m interface{}) error {
 	params := products.NewPostProjectsParams()
 	params.Project = &models.ProjectReq{
 		ProjectName: d.Get("name").(string),
+		Metadata: &models.ProjectMetadata{
+			Public:             strconv.FormatBool(d.Get("public").(bool)),
+			AutoScan:           strconv.FormatBool(d.Get("auto_scan").(bool)),
+			PreventVul:         strconv.FormatBool(d.Get("prevent_vulnerability").(bool)),
+			Severity:           d.Get("severity").(string),
+			EnableContentTrust: strconv.FormatBool(d.Get("content_trust").(bool)),
+		},
 	}
 
 	_, err := hc.client.Products.PostProjects(params, hc.auth)
@@ -64,9 +97,61 @@ func resourceHarborProjectRead(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
+	public, err := strconv.ParseBool(project.Payload.Metadata.Public)
+	if err != nil {
+		return err
+	}
+
+	autoscan, err := strconv.ParseBool(project.Payload.Metadata.AutoScan)
+	if err != nil {
+		return err
+	}
+
+	preventVul, err := strconv.ParseBool(project.Payload.Metadata.PreventVul)
+	if err != nil {
+		return err
+	}
+
+	contentTrust, err := strconv.ParseBool(project.Payload.Metadata.EnableContentTrust)
+	if err != nil {
+		return err
+	}
+
 	d.Set("name", project.Payload.Name)
+	d.Set("public", public)
+	d.Set("auto_scan", autoscan)
+	d.Set("prevent_vulnerability", preventVul)
+	d.Set("severity", project.Payload.Metadata.Severity)
+	d.Set("content_trust", contentTrust)
 
 	return nil
+}
+
+func resourceHarborProjectUpdate(d *schema.ResourceData, m interface{}) error {
+	hc := m.(*HarborClient)
+
+	id, err := strconv.ParseInt(d.Id(), 10, 64)
+	if err != nil {
+		return err
+	}
+
+	params := products.NewPutProjectsProjectIDParams()
+	params.ProjectID = id
+	params.Project = &models.ProjectReq{
+		Metadata: &models.ProjectMetadata{
+			Public:     strconv.FormatBool(d.Get("public").(bool)),
+			AutoScan:   strconv.FormatBool(d.Get("auto_scan").(bool)),
+			PreventVul: strconv.FormatBool(d.Get("prevent_vulnerability").(bool)),
+			Severity:   d.Get("severity").(string),
+		},
+	}
+
+	_, err = hc.client.Products.PutProjectsProjectID(params, hc.auth)
+	if err != nil {
+		return err
+	}
+
+	return resourceHarborProjectRead(d, m)
 }
 
 func resourceHarborProjectDelete(d *schema.ResourceData, m interface{}) error {
