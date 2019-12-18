@@ -117,12 +117,20 @@ func resourceHarborProjectRead(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	d.Set("name", project.Payload.Name)
-	d.Set("public", public)
-	d.Set("auto_scan", autoscan)
-	d.Set("prevent_vulnerability", preventVul)
-	d.Set("severity", project.Payload.Metadata.Severity)
-	d.Set("content_trust", contentTrust)
+	attributes := map[string]interface{}{
+		"name":                  project.Payload.Name,
+		"public":                public,
+		"auto_scan":             autoscan,
+		"prevent_vulnerability": preventVul,
+		"severity":              project.Payload.Metadata.Severity,
+		"content_trust":         contentTrust,
+	}
+	for key, val := range attributes {
+		err = d.Set(key, val)
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
