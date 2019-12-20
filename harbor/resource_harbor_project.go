@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/Ouest-France/goharbor/client/products"
 	"github.com/Ouest-France/goharbor/models"
@@ -94,6 +95,10 @@ func resourceHarborProjectRead(d *schema.ResourceData, m interface{}) error {
 
 	project, err := hc.client.Products.GetProjectsProjectID(params, hc.auth)
 	if err != nil {
+		if strings.Contains(err.Error(), "status 404") {
+			d.SetId("")
+			return nil
+		}
 		return err
 	}
 
@@ -181,18 +186,23 @@ func resourceHarborProjectDelete(d *schema.ResourceData, m interface{}) error {
 func getProjectID(name string, d *schema.ResourceData, m interface{}) (int32, error) {
 	hc := m.(*HarborClient)
 
-	params := products.NewGetProjectsParams()
-	params.Name = &name
+	params := products.NewGetSearchParams()
+	params.Q = name
 
-	res, err := hc.client.Products.GetProjects(params, hc.auth)
+	res, err := hc.client.Products.GetSearch(params, hc.auth)
 	if err != nil {
 		return 0, err
 	}
-	projects := res.GetPayload()
 
-	if len(projects) != 1 {
+	if len(res.GetPayload().Project) == 0 {
 		return 0, errors.New("project not found")
 	}
 
-	return projects[0].ProjectID, nil
+	for _, project := range res.GetPayload().Project {
+		if project.Name == name {
+			return project.ProjectID, nil
+		}
+	}
+
+	return 0, fmt.Errorf("project not found in %d result(s)", len(res.GetPayload().Project))
 }
