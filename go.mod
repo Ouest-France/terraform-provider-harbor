@@ -6,5 +6,5 @@ require (
 	github.com/Ouest-France/goharbor v1.10.1
 	github.com/go-openapi/runtime v0.19.9
 	github.com/go-openapi/strfmt v0.19.4
-	github.com/hashicorp/terraform v0.12.18
+	github.com/hashicorp/terraform v0.13.0
 )
